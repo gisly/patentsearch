@@ -31,6 +31,9 @@ COUNTRYREG_TAG = 'td'
 COUNTRYREG_CLASS = 'tdt'
 
 
+PRIORITY_TAG = 'p'
+PRIORITY_CLASS = 'lt'
+
 MPK_TAG = 'tr'
 MPK_ATTR = 'valign'
 MPK_ATTR_VALUE = 'top'
@@ -146,6 +149,58 @@ def parsePatentHTML(patentHTML):
     patent['abstractText'] = abstractText
     patent['analogues'] = espace_search.getAnaloguesForRussian(patentId, patentKC)
     patent['informationExtraction'] = information_extraction.extractInfo(abstractText, 'RU')
+    
+    
+    if not('registrators' in patent and 'RU' in patent['registrators']) \
+        and not('owners' in patent and 'RU' in patent['owners']):
+        regCountry = getRegCountry(patent['registrators'],  patent['owners'])
+        if regCountry != 'RU':
+        #we have to look for the original app/patent in the foreign country
+            foreignPatent = None
+            if patent['analogues']: 
+                foreignPatentNumber, kc = searchLastApp(patent['analogues'], regCountry)
+                if not foreignPatentNumber:
+                    regCountry = 'WO'
+                    foreignPatentNumber, kc = searchLastApp(patent['analogues'], regCountry)
+                if foreignPatentNumber:
+                    print foreignPatentNumber
+                    print regCountry
+                    print ','.join(patent['analogues'])
+                    foreignPatent = espace_search.parsePatentById(foreignPatentNumber, regCountry, kc)
+            else:
+                priority = parsePriority(patentHTML)
+                print priority
+                numPriority = priority.split(' ', 1)[1].replace(' ','').replace('-', '')
+                print numPriority
+                foreignPatent = espace_search.parsePatentByPriorityNumber(numPriority)
+                
+            if foreignPatent:
+                if patent['title'] != '':
+                    foreignPatent['title'] = patent['title']
+                if patent['abstractText'] != '':
+                    foreignPatent['abstractText'] = patent['abstractText']
+                    foreignPatent['informationExtraction'] = patent['informationExtraction']
+                """if not 'registrators' in foreignPatent and 'registrators' in patent:
+                    foreignPatent['registrators'] = patent['registrators']
+                if not 'owners' in foreignPatent and 'owners' in patent:
+                    foreignPatent['owners'] = patent['owners']"""
+                    
+                abstract = ''
+    
+                if foreignPatent['abstractText'] != '':
+                    abstract =  foreignPatent['abstractText']
+                    
+                foreignPatent['abstractText'] = patent['patentNumber'] + ' ' + abstract   
+                    
+                return foreignPatent
+            
+    
+    abstract = ''
+    
+    if patent['abstractText'] != '':
+        abstract =  patent['abstractText']
+        
+    patent['abstractText'] = patent['patentNumber'] + ' ' + abstract
     return patent
     
     
@@ -221,13 +276,26 @@ def parseTitle(patentHTML):
 """parses the abstract"""
 def parseAbstract(patentHTML):
     abstractElement = html_utils.getFirstHTMLTagByAttribute(patentHTML, ABSTRACT_TAG, 'class', ABSTRACT_CLASS)
-    
+    if abstractElement is None:
+        return ''
     picturesToReplace = processPictures(abstractElement)
     abstractHTML = replacePicturesInHtml(picturesToReplace, html_utils.createString(abstractElement))
     
     abstractHTML  = replaceSpecialSymbolsInHtml(abstractHTML)
     abstractContent = html_utils.normalize(abstractHTML).split(ABSTRACT_DESC)[1].strip()
     return general_utils.normalizeWhitespace(parseOnlyMeaningfulAbstract(abstractContent))
+
+
+"""
+parses the priority information
+"""   
+def parsePriority(patentHTML):
+    allBibTags = html_utils.getHTMLTagsByAttribute(patentHTML, PRIORITY_TAG, 'class', PRIORITY_CLASS)
+    for bibTag in allBibTags:
+        bibTagStr = html_utils.normalize(html_utils.createString(bibTag))
+        if u'Конвенционный приоритет' in bibTagStr:
+            return bibTagStr.split('Конвенционный приоритет:')[1].strip()
+    return None
 
 """extracts the meaningful information from the abstract
 (that is, omits sentences like figure 3 or table 2"""
@@ -260,10 +328,34 @@ def prepareFipsList(fipsList):
     return [element.strip() for element in fipsList if element!='']
 
 
+def getRegCountry(patentRegistrators, patentOwners):
+    COUNTRY_REGEX = ur'.+?\((..)\)'
+    if patentRegistrators:
+        countryMatch = re.match(COUNTRY_REGEX, patentRegistrators)
+        if countryMatch:
+            return countryMatch.group(1)
+    if patentOwners:
+        countryMatch = re.match(COUNTRY_REGEX, patentOwners)
+        if countryMatch:
+            return countryMatch.group(1)
+    return 'RU'
+
+def searchLastApp(analogues, regCountry):
+    toSearch = regCountry + '(.+?) \((.+?)\)'
+    matchRes = None
+    for analogue in analogues:
+        for matchRes in re.finditer(toSearch, analogue):
+            pass
+        if matchRes:
+            return matchRes.group(1), matchRes.group(2)
+    return None, None
+
 """
 replaces graphical elements (e. g., grade sign) with the corresponding characters
 """
 def processPictures(abstractHTML):
+    if abstractHTML is None:
+        return None
     global uniqueSymbols
     allPictures = html_utils.getHTMLTags(abstractHTML, 'img')
     picturesToReplace = dict()
@@ -313,3 +405,8 @@ def hasSpecificTerms(abstractSentence):
           or re.search(specTerm + '\s', abstractSentence) is not None:
             return True
     return False
+
+
+
+#print searchFirstApp('RU123 (C1) US123465(C2)', 'RU')
+

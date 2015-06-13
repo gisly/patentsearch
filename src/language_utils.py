@@ -8,6 +8,7 @@ import ConfigParser
 
 config = ConfigParser.RawConfigParser()
 config.read('patentSettings.ini')
+print 'ok'
 
 
 morph = get_morph(config.get('PYMORPHY','morphSqlite'))

@@ -5,6 +5,7 @@ import urllib2
 import urllib
 import re, urlparse
 
+
 import lxml.html
 from HTMLParser import HTMLParser
 
@@ -37,6 +38,14 @@ def getURLData(url,encoding, encodedParams, isProxy = False):
         if encodedParams:
             url = url + '?%s'%encodedParams
         urlEncoded = iriToUri(url)
+        
+        print urlEncoded
+        print 'isProxy:' + str(isProxy)
+        
+        """if isProxy:
+            proxy_support = urllib2.ProxyHandler({"http":"194.154.74.210:8080"})
+            opener = urllib2.build_opener(proxy_support)
+            urllib2.install_opener(opener)"""
 
         usock = urllib2.urlopen(urlEncoded)
         data = usock.read()
@@ -101,6 +110,17 @@ def createString(html):
     return etree.tostring(html)
 
 
+def getParams(URL):
+    toSearchIn  = URL
+    if '?' in toSearchIn:
+        toSearchIn = toSearchIn.split('?')[1]
+    keyValuePairs = toSearchIn.split('&')
+    paramDict = dict()
+    for keyValuePair in keyValuePairs:
+        keyValue = keyValuePair.split('=')
+        paramDict[keyValue[0]] = keyValue[1]
+    return paramDict
+
 """
 handling some URI problems
 """
@@ -150,5 +170,4 @@ normalizes html data:
 """
 def normalize(htmlData):
     return strip_tags(unescape(htmlData))
-
 

@@ -118,8 +118,10 @@ def elementOrder(chemElement):
         return CHEM_ORDER.index(chemElement)
     return 100000000
      
-"""formates chemical text"""            
+"""formats chemical text"""            
 def getTextForChemicalByPatent(chemical, patent):
+    if not 'informationExtraction' in patent:
+        return '-'
     chemInfo = patent['informationExtraction']['chemical']
     if chemical in chemInfo:
         lower = chemInfo[chemical][0]
@@ -169,7 +171,7 @@ def fillInTopicData(table, patentList):
     new_row = table.add_row()
     for patentIndex, patent in enumerate(patentList):
         table.rows[0].cells[patentIndex + 1].text = createCommonHeader(patent)
-        if patent['informationExtraction']['topic'] is not None:
+        if 'informationExtraction' in patent and patent['informationExtraction']['topic'] is not None:
             new_row.cells[patentIndex + 1].text = patent['informationExtraction']['topic']
         else:
             new_row.cells[patentIndex + 1].text = ''
@@ -181,7 +183,8 @@ def getYear(yearDate):
 def createCommonChemicalList(patentList):
     commonChemicalList = set()
     for patent in patentList:
-        commonChemicalList.update(patent['informationExtraction']['chemical'].keys())
+        if 'informationExtraction' in patent:
+            commonChemicalList.update(patent['informationExtraction']['chemical'].keys())
     return commonChemicalList   
         
     
@@ -195,7 +198,7 @@ def createColumnByIndex(columnIndex, patent):
         return createThirdColumn(patent) 
     if columnIndex == 4:
         return createFourthColumn(patent) 
-    return ''
+    return patent['originalId']
 
 
 def createFirstColumn(patent):

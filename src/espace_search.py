@@ -2,6 +2,7 @@
 __author__ = 'gisly'
 import ConfigParser
 import time
+import re
 
 import html_utils
 import general_utils
@@ -61,17 +62,43 @@ LAW_CLASS = 'tableType3 printTable'
 #TODO: create a simple structure using country codes
 PATENT_TYPES = {
                 'WO':
-                    {'A1':u'Международная заявка'},
+                    {'A1':u'Международная заявка',
+                     'A2':u'Международная заявка',
+                     'A':u'Международная заявка'},
                     
                 'EP':
-                    {'B1':u'Европейский патент на изобретение'},
+                    {'A':u'Европейская заявка',
+                     'A4':u'Европейская заявка',
+                     'A1':u'Европейская заявка',
+                     'B1':u'Европейский патент на изобретение'},
                     
                 'DE':
                     {'A1':u'Заявка Германии на изобретение',
                     'B1':u'Патент Германии на изобретение',
                     'B4':u'Патент Германии на изобретение',
-                    'T2':u'Патент Германии на изобретение (переведенный европейский патент)'},
+                    'T2':u'Патент Германии на изобретение (переведенный европейский патент)',
+                    'C5':u'Патент Германии на изобретение',},
                 
+                
+                 'NL':
+                    {'A1':u'Заявка Нидерландов на изобретение',
+                    'B1':u'Патент Нидерландов на изобретение',
+                    'B4':u'Патент Нидерландов на изобретение',
+                    'C2':u'Патент Нидерландов на изобретение',
+                    'T2':u'Патент Нидерландов на изобретение (переведенный европейский патент)'},
+                
+                
+                'FR':
+                    {'A1':u'Заявка Франции на изобретение',
+                    'B1':u'Патент Франции на изобретение',
+                    'B4':u'Патент Франции на изобретение',
+                    'T2':u'Патент Франции на изобретение (переведенный европейский патент)'},
+                
+                'ES':
+                    {'A1':u'Заявка Испании на изобретение',
+                    'B1':u'Патент Испании на изобретение',
+                    'B4':u'Патент Испании на изобретение',
+                    'T2':u'Патент Испании на изобретение (переведенный европейский патент)'},
                 
                 'CA':
                     {'A1':u'Заявка Канады на изобретение',
@@ -80,18 +107,22 @@ PATENT_TYPES = {
                 
                 'TW':
                     {'A':u'Заявка Тайваня на изобретение',
-                    'B1':u'Патент Тайваня на изобретение'},
+                    'B1':u'Патент Тайваня на изобретение',
+                    'B':u'Патент Тайваня на изобретение'},
                 
                 
                 'CN':
                     {'A':u'Заявка Китая на изобретение',
                      'A2':u'Заявка Китая на изобретение',
-                    'B1':u'Патент Китая на изобретение'},
+                    'B1':u'Патент Китая на изобретение',
+                     'B':u'Патент Китая на изобретение',
+                     'C':u'Патент Китая на изобретение'},
                 'US':
                     {'A':u'Заявка США на изобретение',
                      'A1':u'Заявка США на изобретение',
                      'A2':u'Заявка США на изобретение',
                     'B1':u'Патент США на изобретение',
+                    'B2':u'Патент США на изобретение',
                     },
                 
                 
@@ -103,6 +134,14 @@ PATENT_TYPES = {
                     'C2':u'Патент Украины на изобретение'},
                 
                 
+                'RU':
+                    {'A1':u'Заявка России на изобретение',
+                     'A':u'Заявка России на изобретение',
+                    'B1':u'Патент России на изобретение',
+                    'B4':u'Патент России на изобретение',
+                    'T2':u'Патент России на изобретение (переведенный европейский патент)'},
+                
+                
                 'KR':
                     {'A':u'Заявка Южной Кореи на изобретение',
                      'A2':u'Заявка Южной Кореи на изобретение',
@@ -112,14 +151,16 @@ PATENT_TYPES = {
                 'JP':
                     {'A':u'Заявка Японии на изобретение',
                      'A2':u'Заявка Японии на изобретение',
-                    'B1':u'Патент Японии на изобретение'},
+                    'B1':u'Патент Японии на изобретение',
+                    'B2':u'Патент Японии на изобретение'},
                 
                 }
 
 INTERNATIONAL_CODE = 'WO'
 EUROPEAN_CODE = 'EP'
 RUSSIAN_CODE = 'RU'
-
+AMERICAN_CODE = 'US'
+JAPANESE_CODE = 'JP'
 
 ENCODING = 'utf-8'
 
@@ -136,6 +177,38 @@ returns patent information
 def parsePatentById(patentId, patentCC, patentKC, patentTitle = None, patentAbstract = None):
     patentHTML = getPatentHtml(patentId, patentCC, patentKC)
     return parsePatentHTML(patentHTML, patentId, patentCC, patentKC, patentTitle, patentAbstract)
+
+def parsePatentByPriorityNumber(priorityNumber, patentTitle = None, patentAbstract = None):
+    prioritySearchResulsHTML = getPrioritySearchResults(priorityNumber)
+
+    firstLink = html_utils.getFirstHTMLTagByAttribute(prioritySearchResulsHTML, 'a', 'class', 'publicationLinkClass')
+    if firstLink is None:
+        print 'cannot find the priority'
+        return None
+    linkParams = html_utils.getParams(html_utils.unescape(firstLink.attrib['href']))
+    curNumber = linkParams['NR']
+    kcIndex = curNumber.index(linkParams['KC']) 
+    if kcIndex > 0:
+        curNumber = curNumber[0:kcIndex]
+    foundPatentHtml = getPatentHtml(curNumber, linkParams['CC'], linkParams['KC'])
+    regCountry = priorityNumber[0:2]
+    #if we've found the patent mentioned in the priority document
+    if linkParams['CC']  == regCountry:
+        return parsePatentHTML(foundPatentHtml, curNumber, linkParams['CC'], linkParams['KC'], patentTitle, patentAbstract)
+    #else we've got to look fot the analogues
+    appNumber, appDate, priorityDates, pct, analogues = parseApplicationData(foundPatentHtml)
+    if analogues:
+        return parsePatentAnalogue(analogues, regCountry, patentTitle, patentAbstract)
+    return None
+
+
+def parsePatentAnalogue(patentAnalogues, regCountry, patentTitle = None, patentAbstract = None):
+    if patentAnalogues is None:
+        return None
+    firstAnalogueNumber, firstAnalogueKC = findFirstAnalogueByCountry(patentAnalogues, regCountry)
+    if firstAnalogueNumber and firstAnalogueKC:
+        return parsePatentById(firstAnalogueNumber, regCountry, firstAnalogueKC, patentTitle, patentAbstract)
+    return None
 
 def getPatentHtml(patentId, patentCC, patentKC):
     time.sleep(config.getint('ESPACE', 'PAUSE_SEC'))
@@ -163,6 +236,19 @@ def getLawHtml(patentId, patentCC, patentKC):
 
     return html_utils.getHTMLData(config.get('ESPACE', 'URL_LAW'), ENCODING, params, isProxy = True)
 
+
+def getPrioritySearchResults(priorityNumber):
+    time.sleep(config.getint('ESPACE', 'PAUSE_SEC'))
+    params = {'DB':FOREIGN_DB, 
+              'II':FOREIGN_II,
+              'locale':FOREIGN_LOCALE,
+              'FT':FOREIGN_FT,
+              'at':FOREIGN_AT,
+              'PR':priorityNumber
+              }
+
+    return html_utils.getHTMLData(config.get('ESPACE', 'URL_SEARCH'), ENCODING, params, isProxy = True)
+
 """
 returns patent information
 patentHTML -- patentHTML
@@ -176,7 +262,10 @@ def parsePatentHTML(patentHTML, patentId, patentCC, patentKC, patentTitle = None
     patent['patentNumber'] = patentCC + patentId + '(' +patentKC + ')'
     patent['mpkClasses'] = parseMPKClasses(patentHTML)    
     appNumber, appDate, priorityDates, pct, analogues = parseApplicationData(patentHTML)
-    patent['appNumber'] = appNumber.strip()
+
+    
+    if appNumber:    
+        patent['appNumber'] = appNumber.strip()
     patent['appDate'] = appDate.strip()
     patent['priorityDates'] = priorityDates
     if pct is not None:
@@ -189,21 +278,91 @@ def parsePatentHTML(patentHTML, patentId, patentCC, patentKC, patentTitle = None
     if isPatent(patentKC):
         #have to get the original app
         try:
-            originalAppHtml = getPatentHtml(patentId, patentCC, 'A1')
-            patent['appPublishedDate'] = parsePublishedDate(originalAppHtml).strip()
+            appId = None
+            appKC = None
+            if not (patentCC in [AMERICAN_CODE, JAPANESE_CODE]):
+                appId = patentId
+                if len(patentKC) == 1:
+                    appKC = 'A'
+                else:
+                    appKC = 'A1' 
+            elif analogues:
+                analogueMatch = re.match('(..)(\d+?) \((.+?)\)', analogues[0])
+                print analogues[0]
+                if analogueMatch:
+                    firstAnalogueCC = analogueMatch.group(1)
+                    appId = analogueMatch.group(2)
+                    appKC = analogueMatch.group(3)
+            if appId:
+                originalAppHtml = getPatentHtml(appId, patentCC, appKC)
+                patent['appPublishedDate'] = parsePublishedDate(originalAppHtml).strip()
+                regs = parseAuthors(originalAppHtml)
+                if regs:
+                    patent['registrators'] = regs.strip() 
         except Exception, e:
             print 'no original app: ' + str(e)
             
         
         patent['publishedDate'] = parsePublishedDate(patentHTML).strip()
-        patent['owners'] = parseAuthors(patentHTML).strip()
-        
-        print patent['owners']
-        print patent['owners']
+        authorsParse = parseAuthors(patentHTML)
+        if authorsParse is None:
+            print '!!!authorsParse is None'
+            print html_utils.createString(patentHTML)
+        else:
+            patent['owners'] = parseAuthors(patentHTML).strip()
         
     else: 
+        if analogues:
+            print 'searching for the patent'
+            analogueMatch = re.match('(..)(\d+?) \((.+?)\)', analogues[0])
+            print analogues[0]
+            if analogueMatch:
+                firstAnalogueCC = analogueMatch.group(1)
+                firstAnalogueId = analogueMatch.group(2)
+                firstAnalogueKC = analogueMatch.group(3)
+                if firstAnalogueCC == patentCC and (firstAnalogueKC[0] == 'B' or firstAnalogueKC[0] == 'C'):
+                    print 'patentId:'+firstAnalogueId
+                    return parsePatentById(firstAnalogueId, firstAnalogueCC, firstAnalogueKC, patentTitle, patentAbstract)
         patent['appPublishedDate'] = parsePublishedDate(patentHTML).strip()
-        patent['registrators'] = parseAuthors(patentHTML).strip()
+        regs = parseAuthors(patentHTML)
+        if regs:
+            patent['registrators'] = regs.strip()    
+    #if the country matches then go on
+    #TODO: check it!
+    if  not(patent.get('registrators') and '[' + patentCC+']' in patent.get('registrators')) and \
+        not (patent.get('owners') and '[' + patentCC+']' in patent.get('owners')):
+            
+        regCountry = getRegCountry(patent.get('registrators'),  patent.get('owners'))
+    
+        if regCountry and regCountry != patentCC:  
+            print 'INEQUAL!: '+regCountry+'!='+patentCC
+            foreignPatent = None 
+            if analogues:
+                foreignPatentNumber, kc = searchLastApp(patent['analogues'], regCountry)
+                if not foreignPatentNumber:
+                    regCountry = 'WO'
+                    foreignPatentNumber, kc = searchLastApp(patent['analogues'], regCountry)
+                if foreignPatentNumber:
+                    print foreignPatentNumber
+                    print regCountry
+                    print ','.join(patent['analogues'])
+                    foreignPatent = parsePatentById(foreignPatentNumber, regCountry, kc)
+            else:
+                if priorityDates:
+                    numPriority = priorityDates[0][0]
+                    print 'numPriority:'+numPriority
+                    foreignPatent = parsePatentByPriorityNumber(numPriority)    
+            if foreignPatent:
+                if 'title' in patent and patent['title'] != '':
+                    foreignPatent['title'] = patent['title']
+                if 'abstractText' in patent and patent['abstractText'] != '':
+                    foreignPatent['abstractText'] = patent['abstractText']
+                    foreignPatent['informationExtraction'] = patent['informationExtraction']
+                if not 'registrators' in foreignPatent and 'registrators' in patent:
+                    foreignPatent['registrators'] = patent['registrators']
+                if not 'owners' in foreignPatent and 'owners' in patent:
+                    foreignPatent['owners'] = patent['owners']
+                return foreignPatent
         
     if isEuropean(patentCC):
         patent['lawData'] = parseLawData(patentId, patentCC, patentKC)
@@ -212,8 +371,8 @@ def parsePatentHTML(patentHTML, patentId, patentCC, patentKC, patentTitle = None
         patent['title'] =     patentTitle
     else:
         patent['title'] = parseTitle(patentHTML).strip()
-        
-    patentAbstractOriginal = parseAbstract(patentHTML).strip()    
+       
+    patentAbstractOriginal = parseAbstract(patentHTML) 
        
     
         
@@ -222,18 +381,19 @@ def parsePatentHTML(patentHTML, patentId, patentCC, patentKC, patentTitle = None
         patent['informationExtraction'] = information_extraction.extractInfo(patent['abstractText'], 'RU') 
     else:
         patent['abstractText'] = patentAbstractOriginal
-        patent['informationExtraction'] = information_extraction.extractInfo(patent['abstractText'], 'EN') 
+        if patentAbstractOriginal:
+            patent['informationExtraction'] = information_extraction.extractInfo(patent['abstractText'], 'EN') 
     
     
     
    
-        
-    if len(patent['informationExtraction']['chemical']) == 0:
-        patentFormula = parseFormula(patentId, patentCC, patentKC)    
-        if patentFormula:
-            patent['informationExtractionAdditional'] = u'см. формулу:'+ patentFormula
-        else:
-            patent['informationExtractionAdditional'] = u'нет формулы'
+    if 'informationExtraction' in patent:   
+        if len(patent['informationExtraction']['chemical']) == 0:
+            patentFormula = parseFormula(patentId, patentCC, patentKC)    
+            if patentFormula:
+                patent['informationExtractionAdditional'] = u'см. формулу:'+ patentFormula
+            else:
+                patent['informationExtractionAdditional'] = u'нет формулы'
     
     return patent
 
@@ -241,7 +401,7 @@ def parsePatentHTML(patentHTML, patentId, patentCC, patentKC, patentTitle = None
 checks if it's a patent(True) or an application (False)
 """
 def isPatent(patentKC):
-    return patentKC == 'B1'
+    return patentKC.startswith('B') or patentKC.startswith('C')
 
 """
 returns the MPK classes
@@ -259,7 +419,8 @@ def parseAuthors(patentHTML):
     registratorText = html_utils.getFirstHTMLTagByAttribute(patentHTML, REGISTRATOR_TAG , 
                                                             REGISTRATOR_ATTR, REGISTRATOR_CLASS)
 
-
+    if registratorText is None:
+        return None
     return general_utils.normalizeWhitespace(registratorText.text.strip())
 
 
@@ -320,6 +481,11 @@ returns the abstract information
 def parseAbstract(patentHTML):
     abstractElement = html_utils.getFirstHTMLTagByAttribute(patentHTML, ABSTRACT_TAG, 
                                                             'class', ABSTRACT_CLASS)
+    
+   
+    if abstractElement is None or abstractElement.text is None:
+        return ''
+        
     return abstractElement.text.strip()
 
 """
@@ -349,7 +515,8 @@ looks for analogues for a Russian patent
 def getAnaloguesForRussian(russianPatentId, russianPatentKC):
     time.sleep(config.getint('ESPACE', 'PAUSE_SEC'))
     russianPatentHtml = getPatentHtml(russianPatentId, RUSSIAN_CODE, russianPatentKC)
-    
+    if russianPatentHtml is None:
+        return None
     allAppElements = html_utils.getAllTagsByAttribute(russianPatentHtml, 'class', APP_CLASS)
     for i in range(0, len(allAppElements)):
         curElement = allAppElements[i]
@@ -362,6 +529,7 @@ returns analogue data
 """
 
 def getAnaloguesByURL(url):
+    time.sleep(config.getint('ESPACE', 'PAUSE_SEC'))
     urlPatentHTML = html_utils.getHTMLData(url, ENCODING, None, isProxy = True)
     return parseAnalogueData(urlPatentHTML)
     
@@ -392,6 +560,39 @@ def parseAnalogueData(patentHTML):
 def getAnalogues(analogueElement):
     analogueDataNormalized = general_utils.normalizeWhitespace(html_utils.normalize((html_utils.createString(analogueElement))).split(ANALOGUE_LESS_DESC)[0])
     return analogueDataNormalized.split(';')
+
+
+def findFirstAnalogueByCountry(analogues, regCountry):
+    for analogue in analogues:
+        analogueMatch = re.search(regCountry+'(.+?) \((.+?)\)', analogue)
+        if analogueMatch:
+            return analogueMatch.group(1), analogueMatch.group(2)
+    return None, None
+
+
+#TODO: refactor
+def getRegCountry(patentRegistrators, patentOwners):
+    COUNTRY_REGEX = ur'.+?\[(..)\]'
+    if patentRegistrators:
+        countryMatch = re.match(COUNTRY_REGEX, patentRegistrators)
+        if countryMatch:
+            return countryMatch.group(1)
+    if patentOwners:
+        countryMatch = re.match(COUNTRY_REGEX, patentOwners)
+        if countryMatch:
+            return countryMatch.group(1)
+    return None
+
+
+def searchLastApp(analogues, regCountry):
+    toSearch = regCountry + '(.+?) \((.+?)\)'
+    matchRes = None
+    for analogue in analogues:
+        for matchRes in re.finditer(toSearch, analogue):
+            pass
+        if matchRes:
+            return matchRes.group(1), matchRes.group(2)
+    return None, None
     
     
 """
@@ -440,3 +641,10 @@ def formatDate(appDate):
 
 def formatHeaderDate(headerDate):
     return headerDate[8:] + '.' + headerDate[5:7] + '.' + headerDate[0:4]
+
+
+
+
+#print parsePatentById('6312536', 'US', 'B1')
+
+#print findFirstAnalogueByCountry(['RU2012143205 (A) JP2013241636 (A)'], 'JP')

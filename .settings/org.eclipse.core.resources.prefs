@@ -1,11 +1,14 @@
 eclipse.preferences.version=1
 encoding//src/docs_formatter.py=utf-8
 encoding//src/espace_search.py=utf-8
+encoding//src/espace_search_ws.py=utf-8
 encoding//src/file_utils.py=utf-8
 encoding//src/fips_search.py=utf-8
 encoding//src/general_utils.py=utf-8
 encoding//src/html_utils.py=utf-8
 encoding//src/information_extraction.py=utf-8
 encoding//src/language_utils.py=utf-8
+encoding//src/ops_ws_utils.py=utf-8
 encoding//src/parse_foreign_list.py=utf-8
 encoding//src/patent_search.py=utf-8
+encoding//src/web_utils.py=utf-8
