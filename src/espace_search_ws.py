@@ -14,10 +14,9 @@ import re
 import gettext
 import pycountry
 
-#import information_extraction
-
-KEY = 'mGBQRejZe7vpxGxZQD6bfgehwq7OCBMD'
-SECRET = 'q4CYSLfGaGUnKnvn'
+#TODO: you should use you key here. You can obtain it from the Espace.
+KEY = 'YOUR_KEY'
+SECRET = 'YOU_SECRET'
 AUTH_URL = 'https://ops.epo.org/3.1/auth/accesstoken'
 BIBLIO_URL = 'https://ops.epo.org/rest-services/published-data/publication/epodoc/'
 BIBLIO_URL_INTERNATIONAL = 'https://ops.epo.org/rest-services/published-data/publication/docdb/'
@@ -480,7 +479,3 @@ def formatDate(opsDate):
 def formatIPC(ipc):
     ipcParts = ipc.split('/')
     return ipcParts[0] + '/' + ipcParts[1][0:2]
-
-#print parsePatentById('6190469', 'US', 'B1')
-
-#print parsePatentById('7442268', 'US', 'B2')
